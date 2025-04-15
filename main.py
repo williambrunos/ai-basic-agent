@@ -1,9 +1,8 @@
 from llama_index.llms.ollama import Ollama
 from llama_index.core.tools import FunctionTool
-from llama_index.core.agent.workflow import AgentWorkflow
+from llama_index.core.agent.workflow import AgentWorkflow, AgentStream, AgentInput, AgentOutput, ToolCallResult
 import asyncio
 import yaml
-
 
 def check_weather(location: str) -> str:
     """Useful for checking the weather in a specific location"""
@@ -38,8 +37,18 @@ async def main():
         llm=llm,
         system_prompt=agent_config["prompt"]["system_prompt"]
     )
-    response = await agent.run(user_msg="How is the weather in new york right now?")
-    print(response)
+    handler = agent.run(user_msg="How is the weather in new york right now?")
+                              
+    print("\n--- Agent Reasoning Trace ---")
+    async for ev in handler.stream_events():
+        if isinstance(ev, ToolCallResult):
+            print("")
+            print("Called tool: ", ev.tool_name, ev.tool_kwargs, "=>", ev.tool_output)
+        elif isinstance(ev, AgentStream):  # showing the thought process
+            print(ev.delta, end="", flush=True)
+
+    resp = await handler
+    print(resp)
 
 
 if __name__ == "__main__":
